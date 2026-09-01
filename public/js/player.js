@@ -133,8 +133,8 @@ async function applyMode() {
     return;
   }
 
-  // 统一通过同源流媒体代理播放，绕过源站防盗链 / 跨域
-  ctx.lastUrl = proxyUrl(ctx.lastUrl);
+  // 默认走同源流媒体代理（绕过源站防盗链/跨域）；若已触发回退则直连原始源站
+  ctx.lastUrl = ctx._fallback ? ctx.rawUrl : proxyUrl(ctx.rawUrl);
 
   if (startupTimer) { clearTimeout(startupTimer); startupTimer = null; }
   // 首帧超时提示：解码/渲染若静默失败（黑屏无报错），主动给出可能原因
@@ -151,6 +151,14 @@ async function applyMode() {
       },
       onError: (e) => {
         if (startupTimer) { clearTimeout(startupTimer); startupTimer = null; }
+        // 代理失败（如源站封锁 CF 出口 IP）→ 自动回退浏览器直连（仅一次）
+        if (!ctx._fallback && !ctx._fallbackTried) {
+          ctx._fallbackTried = true;
+          ctx._fallback = true;
+          showToast('代理失败，正在尝试浏览器直连源站…');
+          applyMode();
+          return;
+        }
         showToast('播放出错：' + (e && e.message ? e.message : '未知错误'));
       },
       // 时间更新：末集/单集在最后一秒暂停画面，保留末帧（不黑屏、不销毁）
@@ -185,6 +193,13 @@ async function applyMode() {
     });
   } catch (e) {
     if (startupTimer) { clearTimeout(startupTimer); startupTimer = null; }
+    if (!ctx._fallback && !ctx._fallbackTried) {
+      ctx._fallbackTried = true;
+      ctx._fallback = true;
+      showToast('代理失败，正在尝试浏览器直连源站…');
+      applyMode();
+      return;
+    }
     showToast('播放失败（浏览器需支持 WebCodecs 且源站允许跨域）：' + (e && e.message ? e.message : ''));
   }
 }
@@ -237,7 +252,12 @@ async function playCurrent(resume) {
     return;
   }
 
-  ctx.lastUrl = res.url || ep.url || ep.id || '';
+  // 记录原始源站 URL（未代理包装），用于代理失败时的直连回退
+  ctx.rawUrl = res.url || ep.url || ep.id || '';
+  // 每次重新解析选集时重置回退状态，优先尝试代理
+  ctx._fallback = false;
+  ctx._fallbackTried = false;
+  ctx.lastUrl = ctx.rawUrl;
   ctx.urls = (res.urls && res.urls.length) ? res.urls : (res.url ? [{ label: res.label || '自动', url: res.url }] : []);
   if (!ctx.urls.length) {
     showToast('未获取到播放地址');
@@ -263,7 +283,10 @@ async function cycleQuality() {
   ctx.qualityIdx = (ctx.qualityIdx + 1) % ctx.urls.length;
   const q = ctx.urls[ctx.qualityIdx];
   document.getElementById('btn-quality').textContent = q.label;
+  ctx.rawUrl = q.url;
   ctx.lastUrl = q.url;
+  ctx._fallback = false;
+  ctx._fallbackTried = false;
   await applyMode(); // 重建播放实例以装载新清晰度
   showToast('已切换：' + q.label);
 }
