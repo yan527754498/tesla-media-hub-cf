@@ -3,6 +3,7 @@ import { getSites, resolveSite, splitKey, createAdapter } from './lib/sites.js';
 import { resolvePlayUrl } from './lib/resolvePlay.js';
 import { fetchStream } from './lib/fetcher.js';
 import { handleStream } from './lib/streamProxy.js';
+import { listDir, getPlayUrl } from './lib/webdav.js';
 
 export default {
   async fetch(request, env) {
@@ -149,7 +150,30 @@ async function routeApi(request, url) {
 
   // /api/stream?url=...  流媒体代理（绕过源站防盗链/跨域，详见 lib/streamProxy.js）
   if (p === '/api/stream' && method === 'GET') {
-    return await handleStream(request, url);
+    return await handleStream(request, url, env);
+  }
+
+  // /api/dav  WebDAV 列目录（PROPFIND）
+  if (p === '/api/dav' && method === 'GET') {
+    const dpath = url.searchParams.get('path') || '/';
+    try {
+      const items = await listDir(env, dpath);
+      return json({ code: 1, path: dpath, items });
+    } catch (e) {
+      return json({ code: 0, msg: e.message });
+    }
+  }
+
+  // /api/dav/play  返回真实播放地址（.strm 先解析内部 URL）
+  if (p === '/api/dav/play' && method === 'GET') {
+    const dpath = url.searchParams.get('path') || '';
+    if (!dpath) return json({ code: 0, msg: '缺少 path' }, 400);
+    try {
+      const playUrl = await getPlayUrl(env, dpath);
+      return json({ code: 1, url: playUrl });
+    } catch (e) {
+      return json({ code: 0, msg: e.message });
+    }
   }
 
   return json({ code: 0, msg: 'Not Found' }, 404);
