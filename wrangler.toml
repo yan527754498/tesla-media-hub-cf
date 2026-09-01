@@ -24,8 +24,10 @@ id = "b1110a2727c141beac7835a7930b338d"
 ADMIN_USER = "admin"
 ADMIN_PASS = "admin123"
 
-# WebDAV 网盘配置（留空则「WebDAV 网盘」入口提示未配置；也可在 Cloudflare 后台「变量和机密」设置，避免明文入仓库）
+# WebDAV 网盘配置：此为「fallback」。优先使用 /admin 后台页面写入 KV 的配置（无需改此文件、无需重新部署）。
+# 若两者都未设置，「WebDAV 网盘」入口会提示未配置。
 # WEBDAV_BASE 形如 https://dav.example.com:5006/dav
+# 注意：明文写在此处会进入 Git 仓库，建议优先使用 /admin 后台配置，或用 Secret 覆盖（见下方 TMH_SECRET 说明）。
 WEBDAV_BASE = ""
 WEBDAV_USER = ""
 WEBDAV_PASS = ""
