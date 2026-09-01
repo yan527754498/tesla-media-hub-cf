@@ -61,7 +61,62 @@ function enterAdmin() {
   document.getElementById('login-view').classList.add('hidden');
   document.getElementById('admin-view').classList.remove('hidden');
   loadSources();
+  loadWebdavStatus();
 }
+
+// ---------- WebDAV 配置 ----------
+async function loadWebdavStatus() {
+  const el = document.getElementById('webdav-status');
+  if (!el) return;
+  try {
+    const data = await api('/api/admin/webdav', { token: getToken() });
+    const c = data.config || {};
+    el.textContent = c.base
+      ? `已配置：${c.base}（账号：${c.user || '无'}）`
+      : '尚未配置 WebDAV（在首页「WebDAV 网盘」入口使用）';
+  } catch (e) {
+    el.textContent = '读取配置失败';
+  }
+}
+window.loadWebdavStatus = loadWebdavStatus;
+
+function openWebdavForm() {
+  let cfg = { base: '', user: '', hasPassword: false };
+  // 尽量预填（接口失败也不阻塞，用空值）
+  try {
+    api('/api/admin/webdav', { token: getToken() })
+      .then((d) => { if (d.config) cfg = d.config; })
+      .catch(() => {});
+  } catch (_) { /* ignore */ }
+  showModal(`
+    <div class="modal-body">
+      <h3>配置 WebDAV 网盘</h3>
+      <input id="wd-base" placeholder="WebDAV 地址（如 https://dav.example.com:5006/dav）" value="${esc(cfg.base)}">
+      <input id="wd-user" placeholder="账号（无认证可留空）" value="${esc(cfg.user)}">
+      <input id="wd-pass" type="password" placeholder="${cfg.hasPassword ? '已设置，留空则不修改' : '密码（无认证可留空）'}">
+      <div class="tip">保存后，首页「WebDAV 网盘」入口即可浏览并播放 .mp4 / .strm 文件。配置存于服务端 KV，无需改动部署变量。</div>
+      <div class="modal-actions">
+        <button class="btn" onclick="closeModal()">取消</button>
+        <button class="btn primary" onclick="saveWebdav()">保存</button>
+      </div>
+    </div>`);
+}
+window.openWebdavForm = openWebdavForm;
+
+async function saveWebdav() {
+  const base = (document.getElementById('wd-base') || {}).value || '';
+  const user = (document.getElementById('wd-user') || {}).value || '';
+  const pass = (document.getElementById('wd-pass') || {}).value || '';
+  try {
+    await api('/api/admin/webdav', { method: 'POST', body: { base, user, pass }, token: getToken() });
+    closeModal();
+    showToast('WebDAV 配置已保存');
+    loadWebdavStatus();
+  } catch (e) {
+    handleAuthError(e);
+  }
+}
+window.saveWebdav = saveWebdav;
 
 function handleAuthError(e) {
   if (/未登录|过期/.test(e.message)) {
