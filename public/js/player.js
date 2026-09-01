@@ -20,6 +20,20 @@ function esc(s) {
   }[c]));
 }
 
+/**
+ * 将第三方播放地址改写为同源流媒体代理地址，绕过源站防盗链 / 跨域限制。
+ * - blob:/data: 等浏览器本地地址原样返回
+ * - 已是 /api/stream 的地址（幂等）原样返回
+ * - 仅对 http(s) 绝对地址进行代理包装
+ */
+function proxyUrl(raw) {
+  if (!raw) return raw;
+  if (/^(blob:|data:)/i.test(raw)) return raw;
+  if (raw.indexOf('/api/stream') !== -1) return raw;
+  if (/^https?:\/\//i.test(raw)) return '/api/stream?url=' + encodeURIComponent(raw);
+  return raw;
+}
+
 async function openPlayer(ctx) {
   // 销毁可能存在的播放实例（包括 AppleCMS/IPTv 任一模式）
   if (iptvPlayer) {
@@ -113,6 +127,9 @@ async function applyMode() {
     showToast('当前浏览器不支持 WebCodecs');
     return;
   }
+
+  // 统一通过同源流媒体代理播放，绕过源站防盗链 / 跨域
+  ctx.lastUrl = proxyUrl(ctx.lastUrl);
 
   if (startupTimer) { clearTimeout(startupTimer); startupTimer = null; }
   // 首帧超时提示：解码/渲染若静默失败（黑屏无报错），主动给出可能原因
