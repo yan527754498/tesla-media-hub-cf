@@ -57,6 +57,7 @@ async function render() {
     if (!segs.length) await renderHome();
     else if (segs[0] === 'browse') await renderBrowse(decodeURIComponent(segs[1]));
     else if (segs[0] === 'detail') await renderDetail(decodeURIComponent(segs[1]), decodeURIComponent(segs[2]));
+    else if (segs[0] === 'webdav') await renderWebdav(decodeURIComponent(segs[1] || ''));
     else if (segs[0] === 'iptv') {
       app.innerHTML = '<div class="empty">IPTV 功能已禁用（本部署已移除）</div>';
     }
@@ -72,10 +73,8 @@ async function renderHome() {
   setTitle('车载影视', '选择数据源');
   const data = await api('/api/sources');
   const list = data.list || [];
-  app.innerHTML = `
-    <div class="page-title">选择数据源</div>
-    <div class="card-grid">
-      ${list.length ? list.map((s) => `
+  const sourceCards = list.length
+    ? list.map((s) => `
         <div class="card source-card" onclick="enterSource('${s.id}','${esc(s.type)}')">
           <div class="card-title">${esc(s.name)}</div>
           <div class="card-meta">${esc(s.type)} · ${esc(s.url)}</div>
@@ -83,7 +82,20 @@ async function renderHome() {
             <button class="enter" onclick="event.stopPropagation();enterSource('${s.id}','${esc(s.type)}')">进入</button>
           </div>
         </div>`).join('')
-      : '<div class="empty">暂无数据源<br>请管理员在「管理后台」中添加</div>'}
+    : '<div class="empty">暂无数据源<br>请管理员在「管理后台」中添加</div>';
+  const webdavCard = `
+    <div class="card source-card" onclick="go('/webdav')">
+      <div class="card-title">📁 WebDAV 网盘</div>
+      <div class="card-meta">播放网盘内 .mp4 / .strm</div>
+      <div class="card-actions">
+        <button class="enter" onclick="event.stopPropagation();go('/webdav')">进入</button>
+      </div>
+    </div>`;
+  app.innerHTML = `
+    <div class="page-title">选择数据源</div>
+    <div class="card-grid">
+      ${sourceCards}
+      ${webdavCard}
     </div>`;
 }
 
@@ -394,6 +406,55 @@ function playNow(epIdx) {
   });
 }
 window.playNow = playNow;
+
+// ---------- WebDAV 网盘浏览 ----------
+let webdavItems = [];
+async function renderWebdav(subPath) {
+  const path = subPath || '/';
+  setTitle('WebDAV 网盘', path);
+  app.innerHTML = '<div class="loading">加载中…</div>';
+  let data;
+  try {
+    data = await api('/api/dav?path=' + encodeURIComponent(path));
+  } catch (e) {
+    app.innerHTML = `<div class="empty">加载失败：${esc(e.message)}<br><br><button class="btn primary" onclick="go('/')">返回首页</button></div>`;
+    return;
+  }
+  const items = data.items || [];
+  webdavItems = items;
+  const up = path !== '/' ? `<div style="margin-bottom:8px"><button class="btn" onclick="go('/webdav')">↑ 根目录</button></div>` : '';
+  const grid = items.length
+    ? `<div class="card-grid">${items.map((it, idx) => webdavItemHtml(it, idx)).join('')}</div>`
+    : '<div class="empty">该目录为空</div>';
+  app.innerHTML = `
+    <div class="page-title">WebDAV 网盘 · ${esc(path)}</div>
+    ${up}${grid}`;
+}
+function webdavItemHtml(it, idx) {
+  if (it.isDir) {
+    return `<div class="card vod-card" onclick="go('/webdav/${encodeURIComponent(it.path.replace(/^\/+/, ''))}')">
+      <div class="poster"><div class="remarks">文件夹</div></div>
+      <div class="v-name">${esc(it.name)}</div></div>`;
+  }
+  const tag = it.playable ? '▶ 可播放' : '文件';
+  return `<div class="card vod-card" onclick="playWebdavByIndex(${idx})">
+    <div class="poster"><div class="remarks">${esc(tag)}</div></div>
+    <div class="v-name">${esc(it.name)}</div></div>`;
+}
+function playWebdavByIndex(idx) {
+  const it = webdavItems[idx];
+  if (!it) return;
+  if (!it.playable) return showToast('该文件类型暂不支持播放（仅 .mp4 / .strm 等）');
+  showToast('获取播放地址…');
+  (async () => {
+    try {
+      const data = await api('/api/dav/play?path=' + encodeURIComponent(it.path));
+      if (!data.url) return showToast('未获取到播放地址');
+      playWebdav(data.url, it.name);
+    } catch (e) { showToast(e.message); }
+  })();
+}
+window.playWebdavByIndex = playWebdavByIndex;
 
 // ---------- 启动 ----------
 render();
