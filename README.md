@@ -162,6 +162,24 @@ npx wrangler dev
 - 管理后台 `/admin`：添加 AppleCMS 源（采集接口形如 `https://域名/api.php/provide/vod/`）、编辑/删除、修改管理员密码。
 - 默认已内置几个 AppleCMS 源；首次运行写入 KV 后可随时增删。
 
+## WebDAV 网盘（播放 .mp4 / .strm）
+
+首页新增「WebDAV 网盘」入口，可直接浏览并播放你自己的网盘（家庭 NAS / 支持 WebDAV 的云盘）里的视频：
+
+- **列目录**：Worker 用 `PROPFIND` 读取目录（凭据只存于 Worker 端变量，**不暴露给前端**）。
+- **播放 .mp4 等**：点文件 → 走现有同源代理 `/api/stream`，Worker 自动注入 `Basic Auth`，绕过 CORS / 防盗链。
+- **播放 .strm 指针文件**：点 `.strm` → Worker 读取其文本、解析第一行 `http(s)` 真实地址 → 同样走 `/api/stream`；若第三方源封 Cloudflare 出口 IP 导致代理失败，会自动**回退浏览器直连**（你的家宽 IP 通常放行）—— 完美兼容 ffzy 这类源。
+
+### 配置（部署后在 Cloudflare 后台「变量和机密」设置，或填 `wrangler.toml` 的 `[vars]`）
+
+| 变量 | 说明 |
+| ---- | ---- |
+| `WEBDAV_BASE` | WebDAV 根地址，如 `https://dav.example.com:5006/dav` |
+| `WEBDAV_USER` | WebDAV 账号（Basic Auth 用户名） |
+| `WEBDAV_PASS` | WebDAV 密码 |
+
+> 未配置时，「WebDAV 网盘」入口仍可点击，但会提示「WebDAV 未配置」。建议用 Cloudflare 后台的 Secret/变量设置，避免明文入库。
+
 ## 已知限制 / 注意事项
 
 - **仅支持 AppleCMS 直链 JSON 接口**（`ac=list`/`ac=detail`/`ac=videolist`），依赖 Spider/XPath 解析的站点无法播放。
