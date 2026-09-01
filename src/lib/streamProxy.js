@@ -98,10 +98,22 @@ export async function handleStream(request, url) {
   try {
     up = await fetchStream(tu.toString(), { headers, redirect: 'follow' });
   } catch (e) {
-    return new Response('upstream error: ' + (e && e.message ? e.message : ''), { status: 502 });
+    const dbg = 'upstream error: ' + (e && e.message ? e.message : String(e)) + ' | url=' + tu.toString();
+    return new Response(dbg, {
+      status: 502,
+      headers: { 'Content-Type': 'text/plain; charset=utf-8', 'X-TMH-Error': dbg },
+    });
   }
   if (!up.ok && up.status !== 206) {
-    return new Response('upstream status ' + up.status, { status: 502 });
+    const dbg =
+      'upstream status ' + up.status +
+      ' | url=' + (up.url || tu.toString()) +
+      ' | ct=' + (up.headers.get('content-type') || '') +
+      ' | cf=' + (up.headers.get('cf-ray') || '');
+    return new Response(dbg, {
+      status: 502,
+      headers: { 'Content-Type': 'text/plain; charset=utf-8', 'X-TMH-Error': dbg },
+    });
   }
 
   const finalBase = up.url || tu.toString();
