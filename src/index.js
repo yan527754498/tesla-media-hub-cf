@@ -66,6 +66,24 @@ async function routeApi(request, url) {
     return json({ code: 1, msg: '已更新，请重新登录' });
   }
 
+  // /api/admin/webdav（GET 读取配置 / POST 保存配置，需在 /admin 页面登录后操作）
+  if (p === '/api/admin/webdav') {
+    if (!(await authed(request))) return unauthorized();
+    if (method === 'GET') {
+      return json({ code: 1, config: await store.getWebdavConfigPublic() });
+    }
+    if (method === 'POST') {
+      const body = await request.json().catch(() => ({}));
+      try {
+        const cfg = await store.setWebdavConfig(body);
+        return json({ code: 1, config: cfg, msg: 'WebDAV 配置已保存' });
+      } catch (e) {
+        return json({ code: 0, msg: e.message }, 400);
+      }
+    }
+    return json({ code: 0, msg: 'Method Not Allowed' }, 405);
+  }
+
   // /api/sources
   if (p === '/api/sources') {
     if (method === 'GET') {
@@ -150,14 +168,17 @@ async function routeApi(request, url) {
 
   // /api/stream?url=...  流媒体代理（绕过源站防盗链/跨域，详见 lib/streamProxy.js）
   if (p === '/api/stream' && method === 'GET') {
-    return await handleStream(request, url, env);
+    // 合并 KV 中的 WebDAV 配置（优先于 wrangler 变量），供代理注入 Basic Auth
+    const wdEnv = await store.getWebdavConfig();
+    return await handleStream(request, url, { ...env, ...wdEnv });
   }
 
   // /api/dav  WebDAV 列目录（PROPFIND）
   if (p === '/api/dav' && method === 'GET') {
     const dpath = url.searchParams.get('path') || '/';
     try {
-      const items = await listDir(env, dpath);
+      const wdEnv = await store.getWebdavConfig();
+      const items = await listDir(wdEnv, dpath);
       return json({ code: 1, path: dpath, items });
     } catch (e) {
       return json({ code: 0, msg: e.message });
@@ -169,7 +190,8 @@ async function routeApi(request, url) {
     const dpath = url.searchParams.get('path') || '';
     if (!dpath) return json({ code: 0, msg: '缺少 path' }, 400);
     try {
-      const playUrl = await getPlayUrl(env, dpath);
+      const wdEnv = await store.getWebdavConfig();
+      const playUrl = await getPlayUrl(wdEnv, dpath);
       return json({ code: 1, url: playUrl });
     } catch (e) {
       return json({ code: 0, msg: e.message });
