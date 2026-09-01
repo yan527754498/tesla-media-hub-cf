@@ -170,15 +170,21 @@ npx wrangler dev
 - **播放 .mp4 等**：点文件 → 走现有同源代理 `/api/stream`，Worker 自动注入 `Basic Auth`，绕过 CORS / 防盗链。
 - **播放 .strm 指针文件**：点 `.strm` → Worker 读取其文本、解析第一行 `http(s)` 真实地址 → 同样走 `/api/stream`；若第三方源封 Cloudflare 出口 IP 导致代理失败，会自动**回退浏览器直连**（你的家宽 IP 通常放行）—— 完美兼容 ffzy 这类源。
 
-### 配置（部署后在 Cloudflare 后台「变量和机密」设置，或填 `wrangler.toml` 的 `[vars]`）
+### 配置（推荐在 `/admin` 后台可视化配置）
 
-| 变量 | 说明 |
-| ---- | ---- |
-| `WEBDAV_BASE` | WebDAV 根地址，如 `https://dav.example.com:5006/dav` |
-| `WEBDAV_USER` | WebDAV 账号（Basic Auth 用户名） |
-| `WEBDAV_PASS` | WebDAV 密码 |
+WebDAV 配置存于 KV（键 `tmh:webdav`），**无需改动部署变量、无需重新部署**：
 
-> 未配置时，「WebDAV 网盘」入口仍可点击，但会提示「WebDAV 未配置」。建议用 Cloudflare 后台的 Secret/变量设置，避免明文入库。
+1. 打开 `/admin` 并用管理员账号登录；
+2. 在页面下方「WebDAV 网盘」卡片点击「配置 WebDAV」；
+3. 填写：
+   - **WebDAV 地址**：根地址，如 `https://dav.example.com:5006/dav`
+   - **账号 / 密码**：Basic Auth 凭据（无认证可留空）；密码留空表示不修改已保存项
+4. 保存后，首页「WebDAV 网盘」入口即可浏览并播放。
+
+> 凭据仅保存在服务端 KV 与 Worker 端，**绝不返回给前端**。  
+> 若你更习惯用 `wrangler.toml` 的 `[vars]` 写死（`WEBDAV_BASE` / `WEBDAV_USER` / `WEBDAV_PASS`），它仍作为 **fallback** 生效：KV 中的配置优先于 wrangler 变量。
+
+> 未配置时，「WebDAV 网盘」入口仍可点击，但会提示「WebDAV 未配置」。
 
 ## 已知限制 / 注意事项
 
