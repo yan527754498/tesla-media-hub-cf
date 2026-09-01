@@ -78,7 +78,7 @@ function parsePropfind(xml, cfg) {
 
 export async function listDir(env, path) {
   const cfg = getCfg(env);
-  if (!cfg.base) throw new Error('WebDAV 未配置：请在 Worker 变量设置 WEBDAV_BASE');
+  if (!cfg.base) throw new Error('WebDAV 未配置：请到 /admin 后台「WebDAV 网盘」中填写地址');
   const target = joinUrl(cfg, path || '/');
   const body =
     '<?xml version="1.0" encoding="utf-8"?>' +
@@ -121,7 +121,7 @@ function parseStrm(text) {
 // 返回真实可播放地址（不代理）。前端统一包成 /api/stream?url= 走同源代理 + 回退直连。
 export async function getPlayUrl(env, path) {
   const cfg = getCfg(env);
-  if (!cfg.base) throw new Error('WebDAV 未配置：请在 Worker 变量设置 WEBDAV_BASE');
+  if (!cfg.base) throw new Error('WebDAV 未配置：请到 /admin 后台「WebDAV 网盘」中填写地址');
   const lower = String(path || '').toLowerCase();
   if (lower.endsWith('.strm')) {
     const target = joinUrl(cfg, path);
