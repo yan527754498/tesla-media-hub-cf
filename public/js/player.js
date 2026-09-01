@@ -23,14 +23,19 @@ function esc(s) {
 /**
  * 将第三方播放地址改写为同源流媒体代理地址，绕过源站防盗链 / 跨域限制。
  * - blob:/data: 等浏览器本地地址原样返回
- * - 已是 /api/stream 的地址（幂等）原样返回
+ * - 已是 /api/stream 的地址（幂等）原样返回，并补齐为绝对 URL
  * - 仅对 http(s) 绝对地址进行代理包装
+ * 注意：AVPlayer 在 Web Worker 中拉流，Worker 内无法解析相对 URL，因此必须返回绝对地址。
  */
 function proxyUrl(raw) {
   if (!raw) return raw;
   if (/^(blob:|data:)/i.test(raw)) return raw;
-  if (raw.indexOf('/api/stream') !== -1) return raw;
-  if (/^https?:\/\//i.test(raw)) return '/api/stream?url=' + encodeURIComponent(raw);
+  const origin = (typeof window !== 'undefined' && window.location && window.location.origin) || '';
+  if (raw.indexOf('/api/stream') !== -1) {
+    if (/^https?:\/\//i.test(raw)) return raw;
+    return origin + raw;
+  }
+  if (/^https?:\/\//i.test(raw)) return origin + '/api/stream?url=' + encodeURIComponent(raw);
   return raw;
 }
 
