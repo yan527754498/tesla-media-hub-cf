@@ -241,6 +241,22 @@ async function playCurrent(resume) {
   ctx.isLastEp = ctx.curEp >= eps.length - 1;
   lastFramePaused = false; // 新的一集重新开始计时
 
+  // WebDAV / 直链播放：跳过 /api/sites 解析，直接使用已提供的真实地址
+  if (ctx.directPlay) {
+    const epUrl = ep.url || ep.id || '';
+    if (!epUrl) { showToast('未获取到播放地址'); return; }
+    ctx.rawUrl = epUrl;
+    ctx._fallback = false;
+    ctx._fallbackTried = false;
+    ctx.lastUrl = ctx.rawUrl;
+    ctx.urls = [{ label: '默认', url: epUrl }];
+    ctx.qualityIdx = 0;
+    const qBtn = document.getElementById('btn-quality');
+    if (qBtn) qBtn.style.display = 'none';
+    await applyMode();
+    return;
+  }
+
   let res;
   try {
     res = await api(
@@ -316,6 +332,19 @@ function closePlayer() {
   lastFramePaused = false;
   playerLayer.classList.add('hidden');
 }
+
+// WebDAV / 直链播放入口：streamUrl 为真实源站地址（未代理），由 applyMode 统一走 /api/stream 代理 + 回退直连
+function playWebdav(streamUrl, name) {
+  openPlayer({
+    vodName: name || 'WebDAV',
+    poster: '',
+    plays: [{ flag: 'WebDAV', episodes: [{ name: name || 'WebDAV', url: streamUrl }] }],
+    flagIdx: 0,
+    startEp: 0,
+    directPlay: true,
+  });
+}
+window.playWebdav = playWebdav;
 
 // 暴露给 app.js 使用
 window.openPlayer = openPlayer;
