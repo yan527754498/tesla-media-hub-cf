@@ -2,6 +2,7 @@ import * as store from './lib/store.js';
 import { getSites, resolveSite, splitKey, createAdapter } from './lib/sites.js';
 import { resolvePlayUrl } from './lib/resolvePlay.js';
 import { fetchStream } from './lib/fetcher.js';
+import { handleStream } from './lib/streamProxy.js';
 
 export default {
   async fetch(request, env) {
@@ -144,6 +145,11 @@ async function routeApi(request, url) {
   // /api/proxy/image
   if (p === '/api/proxy/image' && method === 'GET') {
     return await proxyImage(url);
+  }
+
+  // /api/stream?url=...  流媒体代理（绕过源站防盗链/跨域，详见 lib/streamProxy.js）
+  if (p === '/api/stream' && method === 'GET') {
+    return await handleStream(request, url);
   }
 
   return json({ code: 0, msg: 'Not Found' }, 404);
