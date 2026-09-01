@@ -75,7 +75,7 @@ function rewriteM3u8(text, baseUrl, proxyBase) {
   return out.join('\n');
 }
 
-export async function handleStream(request, url) {
+export async function handleStream(request, url, env) {
   const target = url.searchParams.get('url');
   if (!target) return new Response('bad url', { status: 400 });
 
@@ -91,6 +91,18 @@ export async function handleStream(request, url) {
     Origin: tu.origin,
     Accept: '*/*',
   };
+  // WebDAV：目标属于配置的 WEBDAV_BASE 域名时，注入 Basic Auth 以拉取受保护文件
+  if (env && env.WEBDAV_BASE && env.WEBDAV_USER) {
+    try {
+      const wb = new URL(env.WEBDAV_BASE);
+      if (tu.host === wb.host) {
+        let token;
+        try { token = 'Basic ' + btoa(env.WEBDAV_USER + ':' + (env.WEBDAV_PASS || '')); }
+        catch (_) { token = 'Basic ' + btoa(unescape(encodeURIComponent(env.WEBDAV_USER + ':' + (env.WEBDAV_PASS || '')))); }
+        headers['Authorization'] = token;
+      }
+    } catch (_) { /* ignore */ }
+  }
   const range = request.headers.get('range');
   if (range) headers['Range'] = range;
 
