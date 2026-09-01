@@ -165,6 +165,8 @@ npx wrangler dev
 ## 已知限制 / 注意事项
 
 - **仅支持 AppleCMS 直链 JSON 接口**（`ac=list`/`ac=detail`/`ac=videolist`），依赖 Spider/XPath 解析的站点无法播放。
+- **播放已默认走同源流媒体代理 `/api/stream`**：前端拿到的播放地址会自动改写为 `/api/stream?url=...`，由 Worker 向源站拉流并注入源站自身的 `Referer`/`Origin`、透传 `Range`、对 m3u8 递归改写内部 ts/key 地址。这样能解决大部分源站「防盗链（Referer 校验）/跨域」导致的连接失败——这也是 Cloudflare 版相比 Docker 版最容易踩的坑（Docker 版前端跑在你自己的域名/IP 下，源站通常放行；CF 版跑在 `*.workers.dev` 或自定义域名下，源站可能拒绝）。
+- **仍有极少数源站只放行特定地区/ISP 出口 IP**：这种情况下代理也救不了（Worker 出口是 Cloudflare 数据中心 IP），只能换源或改用 Docker 版。
 - **部分影视源是 `http://`**，Cloudflare Workers 的子请求对纯 HTTP 支持有限，建议优先添加 `https://` 的源。
 - 影视聚合类应用涉及版权与地区合规，请确保在合法授权范围内使用；公网部署务必修改默认密码。
 
@@ -183,6 +185,7 @@ tesla-media-hub-cf/
 │       ├── fetcher.js     # fetch 封装（超时/UA）
 │       ├── parsePlay.js   # 播放地址解析（$$$/#/$ 拆分）
 │       ├── resolvePlay.js # HTML 跳转页真实地址解析
+│       ├── streamProxy.js  # 流媒体同源代理（绕过源站防盗链/跨域）
 │       └── sourceParser.js# 源解析（仅 applecms）
 └── public/                # 前端静态资源（原样托管）
 ```
