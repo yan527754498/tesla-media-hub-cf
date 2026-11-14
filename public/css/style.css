@@ -535,3 +535,53 @@ body { display: flex; flex-direction: column; overflow: hidden; }
   padding-top: 4px;
 }
 .back-link:active { color: var(--accent); }
+/* ---------- 补齐 IPTV 容器全屏尺寸（与 #tesla-host 保持一致） ---------- */
+#iptv-host {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  background: #000;
+}
+#iptv-host canvas {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: contain;
+  display: block;
+}
+
+/* ---------- 车载大屏全屏视口锁定（彻底消除黑边、白边与滚动条溢出） ---------- */
+html:fullscreen,
+html:-webkit-full-screen,
+body:fullscreen,
+body:-webkit-full-screen {
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  max-width: 100vw !important;
+  max-height: 100vh !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  background: #000 !important;
+  overflow: hidden !important;
+}
+
+/* 全屏播放时隐藏主界面，防止后台列表撑出滚动条 */
+:fullscreen #topbar,
+:-webkit-full-screen #topbar,
+:fullscreen #app,
+:-webkit-full-screen #app {
+  display: none !important;
+}
+
+/* 播放器全屏层在全屏态下使用 100vh 强制锁死，避免部分车机 Chromium 对 100dvh 计算留白 */
+:fullscreen .player-layer,
+:-webkit-full-screen .player-layer {
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  background: #000 !important;
+  z-index: 99999 !important;
+}
